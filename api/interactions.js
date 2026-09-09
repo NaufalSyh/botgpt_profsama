@@ -46,7 +46,7 @@ export default async function handler(req, res) {
 
     const interaction = JSON.parse(rawBody);
 
-    // 1. PING -> PONG
+    // 1. PING -> PONG (Untuk verifikasi endpoint oleh Discord)
     if (interaction.type === 1) {
       return res.status(200).json({ type: 1 });
     }
@@ -67,44 +67,55 @@ export default async function handler(req, res) {
           });
         }
 
-        const username =
-          interaction.member?.user?.username ||
-          interaction.user?.username ||
-          "User";
+        // Respon awal (Type 5) agar Discord tidak timeout ("Bot is thinking...")
+        res.status(200).json({ type: 5 });
+
+        const appId = process.env.DISCORD_CLIENT_ID;
+        const token = interaction.token;
+        const webhookUrl = `https://discord.com/api/v10/webhooks/${appId}/${token}/messages/@original`;
 
         try {
-          // Panggil OpenAI secara langsung sebelum merespons Discord
           const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
               {
                 role: "system",
                 content:
-                  "Kamu adalah Prof Sama, asisten AI yang cerdas dan ramah. Jawab pertanyaan dengan singkat, padat, dan langsung ke intinya.",
+                  "Kamu adalah asisten AI Discord. Jawab pertanyaan dengan ringkas, jelas, dan langsung ke intinya.",
               },
               { role: "user", content: promptValue },
             ],
-            max_tokens: 150, // Diperkecil agar eksekusi sangat cepat (< 1.5 detik)
+            max_tokens: 300, // Membatasi output agar proses generate jauh lebih cepat
             temperature: 0.7,
           });
 
           const answer =
             response.choices[0]?.message?.content || "Tidak ada respon.";
+          const username =
+            interaction.member?.user?.username ||
+            interaction.user?.username ||
+            "User";
 
-          // Langsung kirim jawaban balik tanpa membuat status 'is thinking'
-          return res.status(200).json({
-            type: 4,
-            data: {
+          // Edit pesan "Bot is thinking..." dengan jawaban OpenAI
+          await fetch(webhookUrl, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
               content: `> **${username}:** ${promptValue}\n\n🤖 ${answer}`,
-            },
+            }),
           });
         } catch (error) {
           console.error("OpenAI Error:", error);
-          return res.status(200).json({
-            type: 4,
-            data: { content: "Maaf, gagal menghubungkan ke AI." },
+          await fetch(webhookUrl, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: "Maaf, gagal menghubungkan ke AI.",
+            }),
           });
         }
+
+        return;
       }
     }
 
