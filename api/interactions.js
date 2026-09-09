@@ -63,9 +63,12 @@ export default async function handler(req, res) {
     if (interaction.type === 1) {
       console.log("PING received → PONG");
 
-      return res.status(200).json({
-        type: 1,
-      });
+      res.setHeader("Content-Type", "application/json");
+      return res.status(200).send(
+        JSON.stringify({
+          type: 1,
+        })
+      );
     }
 
     // =========================
