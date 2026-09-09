@@ -21,8 +21,5 @@
   "dependencies": {
     "discord-interactions": "^4.4.0",
     "openai": "^7.12.1"
-  },
-  "devDependencies": {
-    "vercel": "^59.13.1"
   }
 }
