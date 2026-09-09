@@ -31,9 +31,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Ambil raw body asli untuk verifikasi Discord
     const rawBody = await getRawBody(req);
-
     const signature = req.headers["x-signature-ed25519"];
     const timestamp = req.headers["x-signature-timestamp"];
 
@@ -43,8 +41,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // Verifikasi request Discord
-    const isValid = verifyKey(
+    // 1. Gunakan await untuk verifyKey
+    const isValid = await verifyKey(
       rawBody,
       signature,
       timestamp,
@@ -62,13 +60,7 @@ export default async function handler(req, res) {
     // =========================
     if (interaction.type === 1) {
       console.log("PING received → PONG");
-
-      res.setHeader("Content-Type", "application/json");
-      return res.status(200).send(
-        JSON.stringify({
-          type: 1,
-        })
-      );
+      return res.status(200).json({ type: 1 });
     }
 
     // =========================
@@ -92,13 +84,14 @@ export default async function handler(req, res) {
         }
 
         try {
-          const response = await openai.responses.create({
-            model: "gpt-5-mini",
-            input: question,
+          // 2. Perbaikan sintaks pemanggilan OpenAI SDK
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: question }],
           });
 
           const answer =
-            response.output_text ||
+            response.choices[0]?.message?.content ||
             "Maaf, saya tidak mendapatkan jawaban.";
 
           return res.status(200).json({
@@ -113,8 +106,7 @@ export default async function handler(req, res) {
           return res.status(200).json({
             type: 4,
             data: {
-              content:
-                "Maaf, terjadi kesalahan saat menghubungi AI.",
+              content: "Maaf, terjadi kesalahan saat menghubungi AI.",
             },
           });
         }
