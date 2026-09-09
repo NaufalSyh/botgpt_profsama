@@ -54,7 +54,6 @@ export default async function handler(req, res) {
     // 2. SLASH COMMANDS
     if (interaction.type === 2) {
       const commandName = interaction.data?.name;
-      console.log(`Command diterima: /${commandName}`);
 
       if (commandName === "ask") {
         const question = interaction.data?.options?.find(
@@ -68,31 +67,45 @@ export default async function handler(req, res) {
           });
         }
 
+        // Langsung respon type 5 agar Discord tidak timeout (menampilkan "Bot is thinking...")
+        res.status(200).json({ type: 5 });
+
+        const appId = process.env.DISCORD_CLIENT_ID;
+        const token = interaction.token;
+        const webhookUrl = `https://discord.com/api/v10/webhooks/${appId}/${token}/messages/@original`;
+
         try {
           const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
               { role: "system", content: "Kamu adalah asisten AI yang ramah dan membantu di Discord." },
-              { role: "user", content: question }
+              { role: "user", content: question },
             ],
           });
 
           const answer = response.choices[0]?.message?.content || "Tidak ada respon.";
+          const username = interaction.member?.user?.username || interaction.user?.username || "User";
 
-          // Format tampilan pesan agar seperti percakapan chat
-          return res.status(200).json({
-            type: 4,
-            data: {
-              content: `> **${interaction.member?.user?.username || "User"}:** ${question}\n\n🤖 ${answer}`,
-            },
+          // Edit pesan "Bot is thinking..." dengan jawaban OpenAI
+          await fetch(webhookUrl, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: `> **${username}:** ${question}\n\n🤖 ${answer}`,
+            }),
           });
         } catch (error) {
           console.error("OpenAI Error:", error);
-          return res.status(200).json({
-            type: 4,
-            data: { content: "Maaf, gagal menghubungkan ke AI." },
+          await fetch(webhookUrl, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: "Maaf, gagal menghubungkan ke AI.",
+            }),
           });
         }
+
+        return;
       }
     }
 
