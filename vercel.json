@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "api/interactions.js": {
+      "runtime": "nodejs22.x"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/interactions",
+      "destination": "/api/interactions.js"
+    }
+  ]
+}
