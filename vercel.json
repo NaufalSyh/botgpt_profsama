@@ -2,7 +2,7 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/api/interactions.py"
+      "dest": "/api/interactions.js"
     }
   ]
 }
