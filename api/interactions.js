@@ -13,21 +13,15 @@ export const config = {
 
 async function getRawBody(req) {
   const chunks = [];
-
   for await (const chunk of req) {
-    chunks.push(
-      Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-    );
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
-
   return Buffer.concat(chunks).toString("utf8");
 }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({
-      error: "Method Not Allowed",
-    });
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   try {
@@ -36,12 +30,9 @@ export default async function handler(req, res) {
     const timestamp = req.headers["x-signature-timestamp"];
 
     if (!signature || !timestamp) {
-      return res.status(401).json({
-        error: "Missing Discord signature",
-      });
+      return res.status(401).json({ error: "Missing Discord signature" });
     }
 
-    // 1. Gunakan await untuk verifyKey
     const isValid = await verifyKey(
       rawBody,
       signature,
@@ -55,59 +46,51 @@ export default async function handler(req, res) {
 
     const interaction = JSON.parse(rawBody);
 
-    // =========================
-    // DISCORD PING → PONG
-    // =========================
+    // 1. PING -> PONG
     if (interaction.type === 1) {
-      console.log("PING received → PONG");
       return res.status(200).json({ type: 1 });
     }
 
-    // =========================
-    // SLASH COMMAND
-    // =========================
+    // 2. SLASH COMMANDS
     if (interaction.type === 2) {
       const commandName = interaction.data?.name;
+      console.log(`Command diterima: /${commandName}`);
 
       if (commandName === "ask") {
         const question = interaction.data?.options?.find(
-          (option) => option.name === "question"
+          (opt) => opt.name === "question"
         )?.value;
 
         if (!question) {
           return res.status(200).json({
             type: 4,
-            data: {
-              content: "Pertanyaan tidak boleh kosong.",
-            },
+            data: { content: "Pertanyaan tidak boleh kosong." },
           });
         }
 
         try {
-          // 2. Perbaikan sintaks pemanggilan OpenAI SDK
           const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
-            messages: [{ role: "user", content: question }],
+            messages: [
+              { role: "system", content: "Kamu adalah asisten AI yang ramah dan membantu di Discord." },
+              { role: "user", content: question }
+            ],
           });
 
-          const answer =
-            response.choices[0]?.message?.content ||
-            "Maaf, saya tidak mendapatkan jawaban.";
+          const answer = response.choices[0]?.message?.content || "Tidak ada respon.";
 
+          // Format tampilan pesan agar seperti percakapan chat
           return res.status(200).json({
             type: 4,
             data: {
-              content: answer,
+              content: `> **${interaction.member?.user?.username || "User"}:** ${question}\n\n🤖 ${answer}`,
             },
           });
         } catch (error) {
           console.error("OpenAI Error:", error);
-
           return res.status(200).json({
             type: 4,
-            data: {
-              content: "Maaf, terjadi kesalahan saat menghubungi AI.",
-            },
+            data: { content: "Maaf, gagal menghubungkan ke AI." },
           });
         }
       }
@@ -115,15 +98,10 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       type: 4,
-      data: {
-        content: "Interaction tidak dikenali.",
-      },
+      data: { content: `Interaction '/${interaction.data?.name}' tidak dikenali.` },
     });
   } catch (error) {
     console.error("Server Error:", error);
-
-    return res.status(500).json({
-      error: "Internal Server Error",
-    });
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 }
