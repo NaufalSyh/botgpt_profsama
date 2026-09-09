@@ -5,22 +5,15 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      error: "Method Not Allowed",
-    });
-  }
-
+export async function POST(req) {
   try {
-    const signature = req.headers["x-signature-ed25519"];
-    const timestamp = req.headers["x-signature-timestamp"];
+    // Ambil body asli tanpa mengubah format JSON
+    const rawBody = await req.text();
 
-    const rawBody =
-      typeof req.body === "string"
-        ? req.body
-        : JSON.stringify(req.body);
+    const signature = req.headers.get("x-signature-ed25519");
+    const timestamp = req.headers.get("x-signature-timestamp");
 
+    // Verifikasi request dari Discord
     const isValid = verifyKey(
       rawBody,
       signature,
@@ -29,17 +22,16 @@ export default async function handler(req, res) {
     );
 
     if (!isValid) {
-      return res.status(401).send("Invalid request signature");
+      return new Response("Invalid request signature", {
+        status: 401,
+      });
     }
 
-    const interaction =
-      typeof req.body === "string"
-        ? JSON.parse(req.body)
-        : req.body;
+    const interaction = JSON.parse(rawBody);
 
     // Discord PING
     if (interaction.type === 1) {
-      return res.status(200).json({
+      return Response.json({
         type: 1,
       });
     }
@@ -49,13 +41,12 @@ export default async function handler(req, res) {
       const commandName = interaction.data?.name;
 
       if (commandName === "ask") {
-        const question =
-          interaction.data?.options?.find(
-            (option) => option.name === "question"
-          )?.value;
+        const question = interaction.data?.options?.find(
+          (option) => option.name === "question"
+        )?.value;
 
         if (!question) {
-          return res.status(200).json({
+          return Response.json({
             type: 4,
             data: {
               content: "Pertanyaan tidak boleh kosong.",
@@ -69,9 +60,10 @@ export default async function handler(req, res) {
         });
 
         const answer =
-          response.output_text || "Maaf, saya tidak mendapatkan jawaban.";
+          response.output_text ||
+          "Maaf, saya tidak mendapatkan jawaban.";
 
-        return res.status(200).json({
+        return Response.json({
           type: 4,
           data: {
             content: answer,
@@ -80,7 +72,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({
+    return Response.json({
       type: 4,
       data: {
         content: "Interaction tidak dikenali.",
@@ -89,8 +81,13 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error("Error:", error);
 
-    return res.status(500).json({
-      error: "Internal Server Error",
-    });
+    return Response.json(
+      {
+        error: "Internal Server Error",
+      },
+      {
+        status: 500,
+      }
+    );
   }
 }
