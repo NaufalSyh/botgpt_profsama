@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/NaufalSyh/botgpt_profsama#readme",
   "dependencies": {
+    "@vercel/functions": "^3.9.6",
     "discord-interactions": "^4.4.0",
     "openai": "^7.12.1"
   }
