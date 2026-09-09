@@ -46,7 +46,7 @@ export default async function handler(req, res) {
 
     const interaction = JSON.parse(rawBody);
 
-    // 1. PING -> PONG
+    // 1. PING -> PONG (Untuk verifikasi endpoint oleh Discord)
     if (interaction.type === 1) {
       return res.status(200).json({ type: 1 });
     }
@@ -55,9 +55,7 @@ export default async function handler(req, res) {
     if (interaction.type === 2) {
       const commandName = interaction.data?.name;
 
-      // Disesuaikan untuk membaca /prof
       if (commandName === "prof") {
-        // Disesuaikan untuk membaca option "prompt"
         const promptValue = interaction.data?.options?.find(
           (opt) => opt.name === "prompt"
         )?.value;
@@ -69,7 +67,7 @@ export default async function handler(req, res) {
           });
         }
 
-        // Respon awal (type 5) agar Discord tidak timeout ("Bot is thinking...")
+        // Respon awal (Type 5) agar Discord tidak timeout ("Bot is thinking...")
         res.status(200).json({ type: 5 });
 
         const appId = process.env.DISCORD_CLIENT_ID;
@@ -80,15 +78,25 @@ export default async function handler(req, res) {
           const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
-              { role: "system", content: "Kamu adalah asisten AI yang ramah dan membantu di Discord." },
+              {
+                role: "system",
+                content:
+                  "Kamu adalah asisten AI Discord. Jawab pertanyaan dengan ringkas, jelas, dan langsung ke intinya.",
+              },
               { role: "user", content: promptValue },
             ],
+            max_tokens: 300, // Membatasi output agar proses generate jauh lebih cepat
+            temperature: 0.7,
           });
 
-          const answer = response.choices[0]?.message?.content || "Tidak ada respon.";
-          const username = interaction.member?.user?.username || interaction.user?.username || "User";
+          const answer =
+            response.choices[0]?.message?.content || "Tidak ada respon.";
+          const username =
+            interaction.member?.user?.username ||
+            interaction.user?.username ||
+            "User";
 
-          // Edit pesan "Bot is thinking..." dengan jawaban dari OpenAI
+          // Edit pesan "Bot is thinking..." dengan jawaban OpenAI
           await fetch(webhookUrl, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
