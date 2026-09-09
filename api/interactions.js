@@ -55,19 +55,21 @@ export default async function handler(req, res) {
     if (interaction.type === 2) {
       const commandName = interaction.data?.name;
 
-      if (commandName === "ask") {
-        const question = interaction.data?.options?.find(
-          (opt) => opt.name === "question"
+      // Disesuaikan untuk membaca /prof
+      if (commandName === "prof") {
+        // Disesuaikan untuk membaca option "prompt"
+        const promptValue = interaction.data?.options?.find(
+          (opt) => opt.name === "prompt"
         )?.value;
 
-        if (!question) {
+        if (!promptValue) {
           return res.status(200).json({
             type: 4,
             data: { content: "Pertanyaan tidak boleh kosong." },
           });
         }
 
-        // Langsung respon type 5 agar Discord tidak timeout (menampilkan "Bot is thinking...")
+        // Respon awal (type 5) agar Discord tidak timeout ("Bot is thinking...")
         res.status(200).json({ type: 5 });
 
         const appId = process.env.DISCORD_CLIENT_ID;
@@ -79,19 +81,19 @@ export default async function handler(req, res) {
             model: "gpt-4o-mini",
             messages: [
               { role: "system", content: "Kamu adalah asisten AI yang ramah dan membantu di Discord." },
-              { role: "user", content: question },
+              { role: "user", content: promptValue },
             ],
           });
 
           const answer = response.choices[0]?.message?.content || "Tidak ada respon.";
           const username = interaction.member?.user?.username || interaction.user?.username || "User";
 
-          // Edit pesan "Bot is thinking..." dengan jawaban OpenAI
+          // Edit pesan "Bot is thinking..." dengan jawaban dari OpenAI
           await fetch(webhookUrl, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              content: `> **${username}:** ${question}\n\n🤖 ${answer}`,
+              content: `> **${username}:** ${promptValue}\n\n🤖 ${answer}`,
             }),
           });
         } catch (error) {
